@@ -15,6 +15,7 @@ before_install:
 - sudo -u postgres psql -q -d c2cgeoportal_test -f /usr/share/postgresql/9.1/contrib/postgis-1.5/spatial_ref_sys.sql
 - sudo -u postgres createuser www-data --no-superuser --no-createdb --no-createrole
 - sudo -u postgres psql -q -d c2cgeoportal_test -f travis/db.sql
+- pip install urllib3
 - sudo apache2ctl graceful
 
 install:
