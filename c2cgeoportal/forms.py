@@ -251,16 +251,14 @@ class LayerCheckBoxTreeSet(CheckBoxTreeSet):  # pragma: no cover
         return result
 
     def render_organisational_item(self, item, depth):
-        final_item = item.item if isinstance(item, models.LayergroupTreeitem) else item
-
-        if final_item in self.layer_group:
-            self.layer_group.remove(final_item)
+        if item in self.layer_group:
+            self.layer_group.remove(item)
 
         result = "<li>"
         if self.auto_check:
             result += '<input type="checkbox"></input>'
-        result += "<label>%(label)s</label>" % {'label': final_item.name}
-        result += self.render_children(final_item, depth)
+        result += "<label>%(label)s</label>" % {'label': item.name}
+        result += self.render_children(item, depth)
         result += '</li>'
         return result
 
@@ -269,13 +267,13 @@ class LayerCheckBoxTreeSet(CheckBoxTreeSet):  # pragma: no cover
 
         # no link to theme
         # if autocheck mean that we want select only layers.
-        if isinstance(item, models.Theme) or \
-                self.auto_check and not isinstance(item, models.Layer):
-            return self.render_organisational_item(item, depth)
+        if isinstance(final_item, models.Theme) or \
+                self.auto_check and not isinstance(final_item, models.Layer):
+            return self.render_organisational_item(final_item, depth)
 
         # escape public layer if wanted
-        if self.only_internal_wms and isinstance(item, models.Layer) \
-                and item.layer_type != "internal WMS":
+        if self.only_internal_wms and isinstance(final_item, models.LayerV1) \
+                and final_item.layer_type != "internal WMS":
             return ""
 
         if final_item in self.layer_group:
@@ -291,12 +289,12 @@ class LayerCheckBoxTreeSet(CheckBoxTreeSet):  # pragma: no cover
             'id': '%s_%i' % (self.name, self.i),
             # adds -second to fields (layer) that appears two time to
             # don't save them twice (=> integrity error).
-            'name': self.name + ("-second" if item.id in self._rendered_id else ""),
-            'value': item.id,
+            'name': self.name + ("-second" if final_item.id in self._rendered_id else ""),
+            'value': final_item.id,
             'add': ' checked="checked"' if self._is_checked(item.id) else "",
             'label': final_item.name
         }
-        self._rendered_id.append(item.id)
+        self._rendered_id.append(final_item.id)
         self.i += 1
         result += self.render_children(final_item, depth)
         result += '</li>'
@@ -380,6 +378,7 @@ class FunctionalityCheckBoxTreeSet(CheckBoxTreeSet):  # pragma: no cover
 
 # Layer V1
 LayerV1 = FieldSet(models.LayerV1)
+LayerV1.configure(exclude=[LayerV1.parents_relation])
 LayerV1.layer_type.set(
     renderer=SelectFieldRenderer,
     options=[
@@ -401,10 +400,11 @@ LayerV1.time_mode.set(
 LayerV1.interfaces.set(renderer=CheckBoxSet)
 LayerV1.ui_metadata.set(readonly=True)
 LayerV1.restrictionareas.set(renderer=CheckBoxSet)
-LayerV1.parents_relation.set(readonly=True)
+#LayerV1.parents_relation.set(readonly=True)
 
 # LayerInternalWMS
 LayerInternalWMS = FieldSet(models.LayerInternalWMS)
+LayerInternalWMS.configure(exclude=[LayerInternalWMS.parents_relation])
 LayerInternalWMS.image_type.set(
     renderer=SelectFieldRenderer,
     options=[("image/jpeg", "image/png", _("image/jpeg", "image/png"))])
@@ -414,10 +414,11 @@ LayerInternalWMS.time_mode.set(
 LayerInternalWMS.interfaces.set(renderer=CheckBoxSet)
 LayerInternalWMS.ui_metadata.set(readonly=True)
 LayerInternalWMS.restrictionareas.set(renderer=CheckBoxSet)
-LayerInternalWMS.parents_relation.set(readonly=True)
+#LayerInternalWMS.parents_relation.set(readonly=True)
 
 # LayerExternalWMS
 LayerExternalWMS = FieldSet(models.LayerExternalWMS)
+LayerExternalWMS.configure(exclude=[LayerExternalWMS.parents_relation])
 LayerExternalWMS.image_type.set(
     renderer=SelectFieldRenderer,
     options=[("image/jpeg", "image/png", _("image/jpeg", "image/png"))])
@@ -427,21 +428,53 @@ LayerExternalWMS.time_mode.set(
 LayerExternalWMS.interfaces.set(renderer=CheckBoxSet)
 LayerExternalWMS.ui_metadata.set(readonly=True)
 LayerExternalWMS.restrictionareas.set(renderer=CheckBoxSet)
-LayerExternalWMS.parents_relation.set(readonly=True)
+#LayerExternalWMS.parents_relation.set(readonly=True)
 
 # LayerWMTS
 LayerWMTS = FieldSet(models.LayerWMTS)
+LayerWMTS.configure(exclude=[LayerWMTS.parents_relation])
 LayerWMTS.interfaces.set(renderer=CheckBoxSet)
 LayerWMTS.ui_metadata.set(readonly=True)
 LayerWMTS.dimensions.set(readonly=True)
 LayerWMTS.restrictionareas.set(renderer=CheckBoxSet)
-LayerWMTS.parents_relation.set(readonly=True)
+#LayerWMTS.parents_relation.set(readonly=True)
+
+
+import types
+from functools import partial
+from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.attributes import manager_of_class
+from formalchemy.fields import AttributeField
+
+
+def relation_type(self):
+    return models.TreeItem
+
+
+class ChildrenAttributeField(AttributeField):
+
+    def __init__(self, instrumented_attribute, parent):
+        AttributeField.__init__(self, instrumented_attribute, parent)
+
+    def sync(self):
+        self.model._set_children([
+            self.session.query(models.TreeItem).get(int(pk))
+            #for pk in self.renderer.deserialize()
+            for pk in self.params.getall(self.name)
+        ])
+
 
 # LayerGroup
 LayerGroup = FieldSet(models.LayerGroup)
+LayerGroup.configure(exclude=[LayerGroup.parents_relation, LayerGroup.children_relation])
+LayerGroup.append(ChildrenAttributeField(
+    manager_of_class(models.LayerGroup)['children_relation'], LayerGroup
+))
 LayerGroup.children_relation.set(renderer=TreeItemCheckBoxTreeSet)
+#LayerGroup.children_relation.relation_type = types.MethodType(relation_type, LayerGroup.children_relation)
+#LayerGroup.children_relation.sync = types.MethodType(sync, LayerGroup.children_relation)
 LayerGroup.ui_metadata.set(readonly=True)
-LayerGroup.parents_relation.set(readonly=True)
+#LayerGroup.parents_relation.set(readonly=True)
 
 # LayergroupTreeitem
 LayergroupTreeitem = FieldSet(models.LayergroupTreeitem)
@@ -449,8 +482,15 @@ LayergroupTreeitem.ordering.set(metadata=dict(mandatory='')).required()
 
 # Theme
 Theme = FieldSet(models.Theme)
+Theme.configure(exclude=[Theme.children_relation])
 Theme.ordering.set(metadata=dict(mandatory='')).required()
+Theme.append(ChildrenAttributeField(
+    manager_of_class(models.Theme)['children_relation'], Theme
+))
 Theme.children_relation.set(renderer=TreeItemCheckBoxTreeSet)
+#Theme.children_relation.relation_type = types.MethodType(relation_type, Theme.children_relation)
+#Theme.children_relation.sync = types.MethodType(sync, Theme.children_relation)
+#Theme.children_relation.sync = partial(sync, Theme.children_relation)
 Theme.configure(exclude=[Theme.parents_relation])
 Theme.functionalities.set(renderer=FunctionalityCheckBoxTreeSet)
 Theme.interfaces.set(renderer=CheckBoxSet)

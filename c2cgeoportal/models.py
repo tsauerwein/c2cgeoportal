@@ -376,13 +376,18 @@ class TreeGroup(TreeItem):
         Integer, ForeignKey(_schema + '.treeitem.id'), primary_key=True
     )
 
+#    @property
     def _get_children(self):
         return [c.item for c in self.children_relation]
 
+#    @_get_children.setter
     def _set_children(self, children):
-        self.children_relation = [
-            LayergroupTreeitem(self, item, index) for index, item in enumerate(children)
-        ]
+        if len(children) == 0 or isinstance(children[0], LayergroupTreeitem):
+            self.children_relation = children
+        else:
+            self.children_relation = [
+                LayergroupTreeitem(self, item, index) for index, item in enumerate(children)
+            ]
 
     children = property(_get_children, _set_children)
 
