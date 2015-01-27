@@ -69,7 +69,7 @@ DEV_REQUIREMENTS += \
 	pep8-naming \
 	'c2c.template>=1.0.1dev3' \
 	pyramid_debugtoolbar \
-	c2c.versions
+	'c2c.versions>=0.5dev'
 ifeq ($(TILECLOUD_CHAIN), TRUE)
 DEV_REQUIREMENTS += 'tilecloud-chain>=1.0.0dev'
 endif
@@ -207,7 +207,7 @@ SERVER_LOCALISATION_FILES = $(addprefix $(PACKAGE)/locale/, $(addsuffix /LC_MESS
 # Print
 PRINT_BASE_DIR ?= print
 PRINT_WAR ?= print-$(PACKAGE)-$(INSTANCE_ID).war
-PRINT_OUTPUT ?= /srv/tomcat/tomcat1/webapps/
+PRINT_OUTPUT ?= /srv/tomcat/tomcat1/webapps
 ifeq ($(PRINT3), TRUE)
 PRINT_BASE_WAR ?= print-servlet-3.1-SNAPSHOT.war
 PRINT_INPUT += print-app
