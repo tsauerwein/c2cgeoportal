@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ $# -gt 1 ]
+if [ $# -gt 0 ]
 then
     cd $1
 fi
